@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Mec Web Socket Client | Moisés Azevedo</title>
+	</head>
+	<body>
+		<output id="messages"></output>
+		<script>
+			const mesages = document.querySelector('#messages');
+			const socket = new WebSocket('ws://localhost:1337');
+			socket.onopen = (event) => console.log('web socket is connected!');
+			socket.onmessage = (message) => console.log('i got a message!', message);
+			socket.onerror = (error) => console.error(`web socket error`, error);
+			socket.onclose = (event) =>
+				console.log('disconnected from the web socket server.');
+		</script>
+	</body>
+</html>
