@@ -27,6 +27,7 @@ function onSocketUpgrade(req, socket, head) {
 	socket.write(headers);
 
 	socket.on('readable', () => onSocketReadable(socket));
+	socket.write('hello world');
 }
 
 function onSocketReadable(socket) {
@@ -51,7 +52,46 @@ function onSocketReadable(socket) {
 	const maskkey = socket.read(MASK_KEY_BYTES_LENGTH);
 
 	const encoded = socket.read(messageLength);
-	console.log(encoded);
+	const decoded = unmask(encoded, maskkey);
+	const received = decoded.toString('utf-8');
+
+	const data = JSON.parse(received);
+	console.log('message received', data);
+}
+
+function unmask(encodedBufer, maskKey) {
+	// because the mask key has only four bytes
+	// we do index % 4 === 0, 1, 2, 3 = index bits needed to decode the message
+
+	// XOR ^
+	//
+
+	// (21).toString(2).padStart(8, "0") - 0 1 0 1 0 1
+	// (53).toString(2).padStart(8, "0") - 1 1 0 1 0 1
+	// ^                                 - 1 0 0 0 0 0
+	// String.fromCharCode()
+	// (21 ^ 53).toString(2).padStart(8, "0") = 0 0 1 0 0 0 0 0
+
+	const fillWithRightZeros = (t) => t.padStart(8, '0');
+
+	const toBinary = (t) => fillWithRightZeros(t.toString(2));
+
+	const fromBinaryToDecimal = (t) => parseInt(toBinary(t), 2);
+
+	const getCharFromBinary = (t) => String.fromCharCode(fromBinaryToDecimal(t));
+
+	const finalBuffer = Buffer.from(encodedBufer);
+	for (let i = 0; i < encodedBufer.length; i++) {
+		finalBuffer[i] = encodedBufer[i] ^ maskKey[i % MASK_KEY_BYTES_LENGTH];
+		const logger = {
+			unmaskingCalc: `${toBinary(encodedBufer[i])} ^ ${toBinary(
+				maskKey[i % MASK_KEY_BYTES_LENGTH]
+			)} = ${toBinary(finalBuffer[i])}`,
+			decoded: getCharFromBinary(finalBuffer[i]),
+		};
+		console.log(logger);
+	}
+	return finalBuffer;
 }
 
 function prepareHandshakeHeaders(id) {
