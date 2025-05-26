@@ -5,7 +5,7 @@ const WEBSOCKET_MAGIC_STRING_KEY = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const SEVEN_BITS_INTEGER_MARKER = 125;
 const SIXTEEN_BITS_INTEGER_MARKER = 126;
 const SIXTYFOUR_BITS_INTEGER_MARKER = 127;
-
+const MAXIMUM_SIXTEEN_BITS_INTEGER = 2 ** 16; // 0 to 65536
 const OPCODE_TEXT = 0x01; // 1bit in binary
 
 const MASK_KEY_BYTES_LENGTH = 4;
@@ -41,7 +41,6 @@ function prepareMessage(message) {
 	const messageSize = msg.length;
 
 	let dataFrameBuffer;
-	let offset = 2;
 
 	// 0x80 === 128 in binary
 	// '0x' + Math.abs(128).toString(16);
@@ -49,6 +48,22 @@ function prepareMessage(message) {
 	if (messageSize <= SEVEN_BITS_INTEGER_MARKER) {
 		const bytes = [firstByte];
 		dataFrameBuffer = Buffer.from(bytes.concat(messageSize));
+	} else if (messageSize <= MAXIMUM_SIXTEEN_BITS_INTEGER) {
+		const offsetFourBytes = 4;
+		const target = Buffer.allocUnsafe(offsetFourBytes);
+
+		target[0] = firstByte;
+		target[1] = SIXTEEN_BITS_INTEGER_MARKER | 0x00; // just to know the mask;
+
+		target.writeUint16BE(messageSize, 2); // content length is 2 bytes
+
+		dataFrameBuffer = target;
+		// alloc 4bytes
+		// [0] - 128 + 1 = 10000001 = 0x81 fin + opcode
+		// [1] - 126 + 0 = payload length marker + mask indicator
+		// [2] 0- content length
+		// [3] 171 - content length
+		// [4 -...] - all remaining bytes | the message itself
 	} else {
 		throw new Error('message too long buddy :(');
 	}
@@ -82,6 +97,9 @@ function onSocketReadable(socket) {
 
 	if (lengthIndicatorInBits <= SEVEN_BITS_INTEGER_MARKER) {
 		messageLength = lengthIndicatorInBits;
+	} else if (lengthIndicatorInBits === SIXTEEN_BITS_INTEGER_MARKER) {
+		// unsigned, big-endian 16-bit integer [0-65k]
+		messageLength = socket.read(2).readUint16BE(0);
 	} else {
 		throw new Error(
 			"your message is too long! we don't handle 64-bit messages."
