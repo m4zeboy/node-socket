@@ -33,10 +33,25 @@ export class MecSocket {
 		return shaone.digest('base64');
 	}
 
+	private static getPayloadLengthStrategyConstant(
+		lengthIndicatorInBits: number
+	) {
+		if (lengthIndicatorInBits <= SocketConstants.SEVEN_BITS_INTEGER_MARKER) {
+			return SocketConstants.SEVEN_BITS_INTEGER_MARKER;
+		} else if (
+			lengthIndicatorInBits <= SocketConstants.SIXTEEN_BITS_INTEGER_MARKER
+		) {
+			return SocketConstants.SIXTEEN_BITS_INTEGER_MARKER;
+		}
+		return 0;
+	}
+
 	private static onSocketReadable(socket: Stream.Duplex) {
-		// 1 - 1byte - 8bits
-		// consume optcode (first byte)
-		socket.read(1);
+		// const firstByte = Buffer.from([0x81]);
+		const firstByte = socket.read(1) as Buffer;
+		const FIN = (firstByte.readUInt8(0) >> 4) & 0x0f; // fin == 8
+		const OPCODE = firstByte.readUInt8(0) & 0x0f; // opcode == 1
+
 		const [markerAndPayloadLength] = socket.read(1);
 		// Because the first bit is always 1 for client-server messages
 		// you can subtract one bit (128 or 10000000) from MecSocket byte to get rid of the MASK bit
@@ -45,18 +60,29 @@ export class MecSocket {
 
 		let messageLength = 0;
 
-		if (lengthIndicatorInBits <= SocketConstants.SEVEN_BITS_INTEGER_MARKER) {
-			messageLength = lengthIndicatorInBits;
-		} else if (
-			lengthIndicatorInBits === SocketConstants.SIXTEEN_BITS_INTEGER_MARKER
-		) {
-			// unsigned, big-endian 16-bit integer [0-65k]
-			messageLength = socket.read(2).readUint16BE(0);
-		} else {
-			throw new Error(
-				"your message is too long! we don't handle 64-bit messages."
-			);
-		}
+		console.log(FIN, OPCODE, lengthIndicatorInBits);
+
+		const payloadLengthStrategyRegistry = new Map<number, Function>();
+		payloadLengthStrategyRegistry.set(125, function () {
+			return lengthIndicatorInBits;
+		});
+
+		payloadLengthStrategyRegistry.set(126, function () {
+			return socket.read(2).readUint16BE(0);
+		});
+
+		const PAYLOAD_LENGTH_CONSTANT = MecSocket.getPayloadLengthStrategyConstant(
+			lengthIndicatorInBits
+		);
+		let payloadLengthStrategyHandler = payloadLengthStrategyRegistry.get(
+			PAYLOAD_LENGTH_CONSTANT
+		);
+
+		if (!payloadLengthStrategyHandler) return;
+
+		messageLength = payloadLengthStrategyHandler();
+
+		console.log(messageLength);
 
 		const maskkey = socket.read(SocketConstants.MASK_KEY_BYTES_LENGTH);
 

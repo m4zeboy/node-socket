@@ -13,46 +13,42 @@
 			const socket = new WebSocket('ws://localhost:1337');
 			socket.onopen = (event) => {
 				console.log('web socket is connected!');
-				const intervalId = setInterval(() => {
-					const id = Math.round(Math.random() * 100);
-					console.log('sending...', id);
-					const data = JSON.stringify([
-						{
-							id,
-							name: `[${id}] Moisés Azevedo`,
-							address: {
-								street: 'my street',
-								number: 45 * id,
-							},
-							profession: 'developer',
-						},
-						{
-							id,
-							name: `[${id}] Gabriel Azevedo`,
-							address: {
-								street: "gabriel's street",
-								number: 52 * id,
-							},
-							profession: 'architect',
-						},
-						{
-							id,
-							name: `[${id}] Antonio Carlos Azevedo`,
-							address: {
-								street: "antonio's street",
-								number: 29 * id,
-							},
-							profession: 'engineer',
-						},
-					]);
 
-					socket.send(data);
-				}, 1000);
+				const id = Math.round(Math.random() * 100);
+				console.log('sending...', id);
+				const data = JSON.stringify([
+					{
+						id,
+						name: `[${id}] Moisés Azevedo`,
+						address: {
+							street: 'my street',
+							number: 45 * id,
+						},
+						profession: 'developer',
+					},
+					{
+						id,
+						name: `[${id}] Gabriel Azevedo`,
+						address: {
+							street: "gabriel's street",
+							number: 52 * id,
+						},
+						profession: 'architect',
+					},
+					{
+						id,
+						name: `[${id}] Antonio Carlos Azevedo`,
+						address: {
+							street: "antonio's street",
+							number: 29 * id,
+						},
+						profession: 'engineer',
+					},
+				]);
+
+				socket.send(data);
 			};
 
-			setTimeout(() => {
-				clearInterval(intervalId);
-			}, 5000);
 			socket.onmessage = (message) => {
 				const msg = message.data;
 				messages.innerHTML += `<p>${msg}</p>`;
