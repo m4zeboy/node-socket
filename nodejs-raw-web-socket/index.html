@@ -6,9 +6,10 @@
 		<title>Mec Web Socket Client | Moisés Azevedo</title>
 	</head>
 	<body>
+		<h1>Messages</h1>
 		<output id="messages"></output>
 		<script>
-			const mesages = document.querySelector('#messages');
+			const messages = document.querySelector('#messages');
 			const socket = new WebSocket('ws://localhost:1337');
 			socket.onopen = (event) => {
 				console.log('web socket is connected!');
@@ -26,7 +27,10 @@
 
 				socket.send(data);
 			};
-			socket.onmessage = (message) => console.log('i got a message!', message);
+			socket.onmessage = (message) => {
+				const msg = message.data;
+				messages.innerHTML += `<p>${msg}</p>`;
+			};
 			socket.onerror = (error) => console.error(`web socket error`, error);
 			socket.onclose = (event) =>
 				console.log('disconnected from the web socket server.');
